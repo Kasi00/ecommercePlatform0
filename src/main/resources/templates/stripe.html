@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Stripe Checkout</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        #card-element {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<h2>Checkout</h2>
+<div id="card-element"></div>
+<button id="pay-button" type="button">Pay</button>
+<p id="status-message"></p>
+
+<script>
+    const stripe = Stripe("pk_test_51RKxh5FQS0GKLivDvPFkxz9dRsFad5F5pVwScxSH4PtzKq1okgXrhFpp0Lj7fWvixnB3avoCVRiNQmwm8YoTIIEL00NWBmK3oe"); // <-- Replace with your test publishable key
+
+    const elements = stripe.elements();
+    const cardElement = elements.create("card");
+    cardElement.mount("#card-element");
+
+    document.getElementById("pay-button").addEventListener("click", async () => {
+        const userId = 1; // <-- Replace with actual user ID
+        const currency = "usd";
+
+        // Step 1: Call your backend to create a PaymentIntent
+        const response = await fetch("http://localhost:8080/api/payments/create-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: userId, currency: currency }),
+        });
+
+        const data = await response.json();
+        const clientSecret = data.clientSecret;
+
+        // Step 2: Confirm the payment with the card info
+        const result = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: {
+                card: cardElement,
+                billing_details: {
+                    name: "Test User",
+                },
+            },
+        });
+
+        // Step 3: Handle result
+        const message = document.getElementById("status-message");
+        if (result.error) {
+            message.textContent = "❌ Payment failed: " + result.error.message;
+        } else {
+            if (result.paymentIntent.status === "succeeded") {
+                message.textContent = "✅ Payment succeeded!";
+            } else {
+                message.textContent = "⚠️ Payment status: " + result.paymentIntent.status;
+            }
+        }
+    });
+</script>
+</body>
+</html>
